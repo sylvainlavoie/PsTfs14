@@ -3,10 +3,11 @@ Set-StrictMode -Version Latest
 
 function Get-TFSBuildDefinitions {
     [CmdletBinding()]
-    [OutputType([Microsoft.TeamFoundation.Build.Client.IBuildDefinition[]])]
+    [OutputType([Microsoft.TeamFoundation.Build.Client.IBuildDefinition])]
     param(
         [Microsoft.TeamFoundation.Client.TfsTeamProjectCollection]
         [ValidateNotNullOrEmpty()]
+        [Parameter(Mandatory = $true)]
         [Alias('TFS')]
         $TfsCollection,
         [string]
@@ -23,31 +24,61 @@ function Get-TFSBuildDefinitions {
     )
     begin
     {
-        if ([String]::IsNullOrEmpty($TfsCollection))
+        function Add-DefinitionType 
         {
-             Throw 'TFS Collection is invalid or empty!'
+            [cmdletbinding()]
+            param(
+                [Parameter(ValueFromPipeline = $true)]
+                $definition
+            )
+            begin
+            {
+                $add = @(
+                    @{
+                        n = 'LastGoodBuildId'
+                        e = {
+                            $_.LastGoodBuildUri.Segments[3]
+                        }
+                    },
+                     @{
+                        n = 'LastBuildId'
+                        e = {
+                            $_.LastBuildUri.Segments[3]
+                        }
+                    }
+                )
+                $default = @('TeamProject', 'Name', 'Enabled', 'Id')
+            }
+            process
+            {
+                $definition | Add-ObjectTypeDetails -TypeName 'TFS.XAML.BuildDefinition' -DefaultProperties $default #-PropertyToAdd $add 
+                
+            }
         }
     }
     process{
-        $result = $null
+       
         if ($TeamProject){
             if ($Options){
-                $result = $TfsCollection.BS.QueryBuildDefinitions($TeamProject,$Options)
+                $TfsCollection.BS.QueryBuildDefinitions($TeamProject,$Options) | 
+                    Add-DefinitionType 
             }
             else{
-                $result = $TfsCollection.BS.QueryBuildDefinitions($TeamProject)
+                $TfsCollection.BS.QueryBuildDefinitions($TeamProject) | 
+                    Add-DefinitionType 
             }
         }
         elseif ($DefinitionSpec){
             $qr = $TfsCollection.BS.QueryBuildDefinitions($DefinitionSpec)
             if ($qr -and $qr.Definitions -and $qr.Definitions.Count -gt 0){
-                $result = $qr.Definitions
+                $qr.Definitions | 
+                    Add-DefinitionType 
             }
         }
-        if ($result){
-            ([Microsoft.TeamFoundation.Build.Client.IBuildDefinition[]]$result)
-        }
+        
     }
-    end{}
+    end
+    {
+    }
 }
 

@@ -15,9 +15,21 @@ $Script:moduleRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 $Script:omBinFolder = Join-Path -Path $ModuleRoot -ChildPath 'TfsLib'
 $Script:omLoadFolder = Join-Path -Path $ModuleRoot -ChildPath 'TfsLoad'
 
-Add-Type -Path 'D:\Temp\Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll'
+#Add-Type -Path 'D:\Temp\Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll'
 
 $script:TFSAssemblyDll = @(
+    [PSCustomObject]@{
+        Name     = 'NewtonJson'
+        Path     = ''
+        Runtime  = ''
+        Assembly = 'Newtonsoft.Json'
+    },
+    [PSCustomObject]@{
+        Name     = 'IdentityModel'
+        Path     = ''
+        Runtime  = ''
+        Assembly = 'Microsoft.IdentityModel.Clients.ActiveDirectory'
+    },
     [pscustomobject]@{
         Name     = 'VSCommon'
         Path     = ''
@@ -30,12 +42,12 @@ $script:TFSAssemblyDll = @(
         Runtime  = ''
         Assembly = 'Microsoft.VisualStudio.Services.WebApi'
     }, 
-    [pscustomobject]@{
-        Name     = 'VSClient'
-        Path     = ''
-        Runtime  = ''
-        Assembly = 'Microsoft.VisualStudio.Services.Client'
-    }, 
+    #[pscustomobject]@{
+    #    Name     = 'VSClient'
+    #    Path     = ''
+    #    Runtime  = ''
+    #    Assembly = 'Microsoft.VisualStudio.Services.Client'
+    #}, 
     [pscustomobject]@{
         Name     = 'TFCommon'
         Path     = ''
@@ -85,10 +97,10 @@ $script:TFSAssemblyDll = @(
         Assembly = 'Microsoft.TeamFoundation.DistributedTask.WebApi'
     #},
     #[PSCustomObject]@{
-    #    Name     = 'NewtonJson'
+    #    Name     = 'IdentityModel'
     #    Path     = ''
     #    Runtime  = ''
-    #    Assembly = 'Newtonsoft.Json'
+    #    Assembly = 'Microsoft.IdentityModel.Clients.ActiveDirectory'
     #},
     #[PSCustomObject]@{
     #    Name     = 'WebHttp'
@@ -113,11 +125,22 @@ $Script:tfsNuget = @(
     #'Microsoft.VisualStudio.Services.Release.Client'
 
     
-        'Microsoft.TeamFoundationServer.ExtendedClient'
-        'Microsoft.TeamFoundationServer.Client', 
-        'Microsoft.TeamFoundationServer.ExtendedClient', 
-        'Microsoft.VisualStudio.Services.Client', 
-        'Microsoft.VisualStudio.Services.InteractiveClient'
+        #'Microsoft.TeamFoundationServer.ExtendedClient'
+        #'Microsoft.TeamFoundationServer.Client', 
+        #'Microsoft.TeamFoundationServer.ExtendedClient', 
+        #'Microsoft.VisualStudio.Services.Client', 
+        #'Microsoft.VisualStudio.Services.InteractiveClient'
+  [PSCustomObject]@{id='Microsoft.AspNet.WebApi.Client'; version='5.2.2' },
+  [PSCustomObject]@{id='Microsoft.AspNet.WebApi.Core'; version='5.2.2'},
+  [PSCustomObject]@{id='Microsoft.IdentityModel.Clients.ActiveDirectory'; version='2.22.302111727'},
+  [PSCustomObject]@{id='Microsoft.TeamFoundationServer.Client'; version='14.102.0' },
+  [PSCustomObject]@{id='Microsoft.TeamFoundationServer.ExtendedClient'; version='14.102.0' },
+  [PSCustomObject]@{id='Microsoft.VisualStudio.Services.Client'; version='14.102.0'},
+  [PSCustomObject]@{id='Microsoft.VisualStudio.Services.InteractiveClient'; version='14.102.0' },
+  [PSCustomObject]@{id='Microsoft.WindowsAzure.ConfigurationManager'; version='1.7.0.0' },
+  [PSCustomObject]@{id='Newtonsoft.Json'; version='6.0.8' },
+  [PSCustomObject]@{id='System.IdentityModel.Tokens.Jwt'; version='4.0.0' },
+  [PSCustomObject]@{id='WindowsAzure.ServiceBus'; version='2.5.1.0' }
 )
 function New-Folder 
 {
@@ -157,7 +180,7 @@ function Get-Nuget
         $sourceNugetExe = 'http://nuget.org/nuget.exe'
 
         #where to save Nuget.exe too
-        $targetNugetFolder = New-Folder -Path (Join-Path -Path $ModuleRoot -ChildPath 'Nuget')
+        $targetNugetFolder = New-Folder -Path (Join-Path -Path $script:ModuleRoot -ChildPath 'Nuget')
         $targetNugetExe = Join-Path -Path $targetNugetFolder -ChildPath 'nuget.exe'
 
     }
@@ -201,12 +224,12 @@ function Get-TfsNuget
     Begin
     {
         #clear out bin folder
-        $targetOMbinFolder = New-Folder -Path $omBinFolder
-        $targetOMFolder = New-Folder -Path (Join-Path -Path $ModuleRoot -ChildPath 'TFSOM')
+        $targetOMbinFolder = New-Folder -Path $script:omBinFolder
+        $targetOMFolder = New-Folder -Path (Join-Path -Path $Script:ModuleRoot -ChildPath 'TFSOM')
         if ($Force)
         { 
             Remove-Item $targetOMbinFolder -Force -Recurse
-            $targetOMbbinFolder = New-Folder -Path $omBinFolder
+            $targetOMbbinFolder = New-Folder -Path $script:omBinFolder
         }
 
     }
@@ -218,7 +241,7 @@ function Get-TfsNuget
         if (!$Force)
         {
             $Script:tfsNuget | ForEach-Object {
-                $isPackageMissing = $isPackageMissing -or -not (Test-Path -Path (Join-Path -Path $targetOMFolder -ChildPath $_))
+                $isPackageMissing = $isPackageMissing -or -not (Test-Path -Path (Join-Path -Path $targetOMFolder -ChildPath $_.id))
             }
         }
         
@@ -226,15 +249,15 @@ function Get-TfsNuget
         { 
             $Script:tfsNuget | 
             ForEach-Object -Process {
-                call_nuget install $_ -OutputDirectory $targetOMFolder -ExcludeVersion -NonInteractive |
+                call_nuget install $_.Id -version $_.version -OutputDirectory $targetOMFolder -ExcludeVersion -NonInteractive |
                 ForEach-Object {
                     $new = $new -or ($out -match 'installing|successfully\sinstalled')
                     Write-Verbose $_
                 }
             } 
-            Copy-NewBinaries -Path $targetOMFolder -Verbose:($PSBoundParameters.Verbose -eq $true) 
+            
         }
-        
+        Copy-NewBinaries -Path $targetOMFolder -Verbose:($PSBoundParameters.Verbose -eq $true) 
         
         
                 
@@ -261,37 +284,25 @@ function Copy-NewBinaries
     {
         
         Get-ChildItem -Path $Path -Directory |
-        ForEach-Object -Process {
-            Write-Verbose -Message "Searching files to deploy: $_"
-            $_ |
-            Get-ChildItem -Filter 'lib' -Directory | 
-            ForEach-Object -Process {
-                $found = @()
+        ForEach-Object {
+            $mod = $_
+            Write-Host "Copy module binaries for loading $_"
+            $mod | Get-ChildItem -Filter 'lib' -Directory | ForEach-Object -Process {
+                $lib = $_
                 foreach ($platform in $filesOrders) 
                 {
-                    if ($found.Count -eq 0)
+                    $dir = $lib | Get-ChildItem -Filter $platform -Directory
+                    if ($dir)
                     {
-                        $found += $_ |
-                        Get-ChildItem -Filter $platform -Directory |
-                        Get-ChildItem -File -Filter '*.dll*' |
-                        Copy-Item -Destination $targetOMbinFolder -PassThru
-                        if ($found.Count -gt 0)
-                        {
-                            $found
-                            break
-                        }
+                        $dest = New-Folder -path $Script:omBinFolder #(Join-Path $Script:omBinFolder -ChildPath $mod.BaseName)
+                        $dir | Get-ChildItem | Copy-Item  -Destination $dest -Force 
+                        break
                     }
-                } 
-                if ($found.Count -eq 0)
-                {
-                    Write-Warning -Message "No files deployed for folder: $_.RFullname"
                 }
             }
-        } | 
-        ForEach-Object {
-            Add-Type -Path $_.Fullname
-            Write-Verbose "File deployed: $($_.FullName)"
         }
+        
+       
     }
     
 }
@@ -306,8 +317,8 @@ function Import-TFSAssemblies
         { 
             Write-Verbose "Deploy TFS OM assemblies for loading $($Script:omBinFolder) -> $($Script:omLoadFolder)" 
             $ErrorActionPreference = 'SilentlyContinue'
-            Get-ChildItem -Path $Script:omBinFolder |
-            Copy-Item -Destination (New-Folder $Script:omLoadFolder) -Force -ErrorAction Ignore -ErrorVariable err
+            Get-ChildItem -Path $Script:omBinFolder -file |
+                Copy-Item -Destination (New-Folder $Script:omLoadFolder) -Force  -ErrorAction Ignore -ErrorVariable err
         }
         catch{}
        
@@ -316,17 +327,20 @@ function Import-TFSAssemblies
     {
         try 
         {
-            $script:TFSAssemblyDll | 
-                ForEach-Object -Process {
-                    $dll = $_
-                    Get-ChildItem -Path $Script:omLoadFolder -Filter "$($dll.Assembly).dll" |
+             
+            $load = (New-Folder $Script:omLoadFolder)
+            $script:TFSAssemblyDll |
+                ForEach-Object { 
+                    $load | Get-ChildItem  -Filter "$($_.Assembly).dll"  |
                         ForEach-Object -Process {
                             Write-Host "Load Assembly: $($_.FullName)"
-                            $dll.Path = $_.FullName
-                            $dll.Runtime = Add-Type -Path $_.FullName -PassThru 
-                            Write-Verbose "Assembly $($dll.Assembly) loaded from $($dll.Path)"
+                           
+                            Add-Type -Path $_.FullName
+                            Write-Verbose "Assembly loaded from $($_.FullName)"
                         }
+
                 }
+                
         }
         catch 
         {
@@ -340,7 +354,7 @@ function Import-TFSAssemblies
 }
 
 
-Get-Nuget -Verbose:$PSBoundParameters.ContainsKey('Verbose') -Force:$PSBoundParameters.ContainsKey('Force')
-Get-TfsNuget -Verbose:$PSBoundParameters.ContainsKey('Verbose') -Force:$PSBoundParameters.ContainsKey('Force')
+#Get-Nuget -verbose # -Verbose:$PSBoundParameters.ContainsKey('Verbose') -Force:$PSBoundParameters.ContainsKey('Force')
+# Get-TfsNuget -Verbose #:$PSBoundParameters.ContainsKey('Verbose') -Force:$PSBoundParameters.ContainsKey('Force')
 
-Import-TFSAssemblies -Verbose:$PSBoundParameters.ContainsKey('Verbose')
+Import-TFSAssemblies -Verbose #:$PSBoundParameters.ContainsKey('Verbose')

@@ -11,7 +11,7 @@ function Get-TFSDefault
         {
             $script:TFSDefault = $null
         }
-        if (!$script:TFSDefault)
+        if (-not (Get-Variable -Name 'TFSDefault' -Scope Script -ErrorAction SilentlyContinue))
         {
             $file = Join-Path -Path (Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent) -ChildPath 'TFSDefault.json'
             $script:TFSDefault = Get-Content -Path $file | Out-String | ConvertFrom-Json |

@@ -1,3 +1,4 @@
+#requires -Version 3
 
 function Set-TFSDefault
 {
@@ -13,7 +14,7 @@ function Set-TFSDefault
     )
     begin
     {
-        $script:TFSDefault = $null
+        Remove-Variable -Name TFSDefault -Scope script -ErrorAction SilentlyContinue
     }
     process
     { 
@@ -22,8 +23,7 @@ function Set-TFSDefault
 
         [PSCustomObject]@{
             TfsConfigurationServerUrl = $ConfigurationServerUrl
-            TfsCollectionUrl = $CollectionUrl
-
+            TfsCollectionUrl          = $CollectionUrl
         } | 
         ConvertTo-Json | 
         Out-File -FilePath $file -Force
